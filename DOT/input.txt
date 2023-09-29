@@ -1,0 +1,4 @@
+digraph D {
+
+    start -> 0 -> 1 -> 2 ->  end
+ }
