@@ -145,7 +145,7 @@
 		#!/usr/bin/sh
 
 		setup(){
-			local venvpath="$HOME/path/to/env"
+			local venvpath="$HOME/Compilers/env"
 
 			source "${venvpath}/bin/activate"
 			
