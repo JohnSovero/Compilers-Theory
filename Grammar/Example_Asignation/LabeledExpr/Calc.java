@@ -18,4 +18,3 @@ public class Calc {
 		eval.visit(tree);
 	}
 }
-

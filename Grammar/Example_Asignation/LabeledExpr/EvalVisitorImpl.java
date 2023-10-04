@@ -12,6 +12,7 @@ public class EvalVisitorImpl extends LabeledExprBaseVisitor<Integer> {
 		int value = visit(ctx.expr());
 		memory.put(id, value);
 		return value;
+		
 	}
 
 	/* expr NEWLINE */
@@ -32,7 +33,8 @@ public class EvalVisitorImpl extends LabeledExprBaseVisitor<Integer> {
 	@Override
 	public Integer visitId(LabeledExprParser.IdContext ctx) {
 		String id = ctx.ID().getText();
-		if (memory.containsKey(id)) return memory.get(id);
+		if (memory.containsKey(id)) 
+			return memory.get(id);
 		return 0;
 	}
 

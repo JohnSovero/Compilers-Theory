@@ -1,117 +1,110 @@
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Visitor extends DotExprBaseVisitor<String> {
-    Map<String, String> memory = new HashMap<String, String>();
-    Map<String, List<String>> list = new HashMap<String, List<String>>();
-    String node;
+    SymbolTable symbolTable = new SymbolTable(); // Symbol table
+    List<String> attr_list = new ArrayList<String>(); // Attributes
+    List<String> edges_list = new ArrayList<String>(); // Edges
+    String previous_node; // Previous node
 
-    /* STRICT? (GRAPH|DIGRAPH) ID? '{' stmt_list '}' EOF # StmtList */
-    @Override
-    public String visitStmtList(DotExprParser.StmtListContext ctx) {
-        visit(ctx.stmt_list());
-        writeFile();
-        return "true";
-    }
-
-    /* ID '=' ID #Assign */
+    /* id_ '=' id_ #Assign */
     @Override
     public String visitAssign(DotExprParser.AssignContext ctx) {
-        String id = ctx.ID(0).getText();
-        String value = ctx.ID(1).getText();
-        memory.put(id, value);
+        String id = ctx.id_(0).getText();
+        String value = ctx.id_(1).getText();
+        addAttrToken(id, "Assign", value);
         return value;
     }
 
-    /* (node_id|subgraph) edgeRHS+ attr_list? #EdgeStmt */
+    /* (id_ '=' id_ sep? )+ #AList */
+    @Override
+    public String visitAList(DotExprParser.AListContext ctx) {
+
+        Integer size = ctx.id_().size();
+        for (int i = 0; i < size; i += 2) {
+            String id = ctx.id_(i).getText();
+            String value = ctx.id_(i + 1).getText();
+            attr_list.add(id);
+            attr_list.add(value);
+        }
+        return "size";
+    }
+
+    /* ((node_id | subgraph) edgeRHS ) attr_list? # EdgeStmt */
     @Override
     public String visitEdgeStmt(DotExprParser.EdgeStmtContext ctx) {
-        // Get the node
-        node = ctx.node_id().getText();
-        // Get the iterator
-        String element = visit(ctx.edgeRHS());
-        // Add all the edges
-        insertNode(node, element);
-        return node;
-    }
 
-    /* EDGEOP (node_id|subgraph) edgeRHS? # EdgeRhs */
-    @Override
-    public String visitEdgeRhs(DotExprParser.EdgeRhsContext ctx) {
-        String node = visit(ctx.getChild(1));
+        previous_node = visit(ctx.getChild(0));
+        edges_list.add(previous_node);
 
-        // String n = ctx.getChild(1).getText();
-        String element = "";
-        if (ctx.children.size() == 3) {
-            element = visit(ctx.edgeRHS());
-            insertNode(node, element);
+        Integer size = ctx.children.size();
+        for (int i = 1; i < size; i++) {
+            String type = ctx.getChild(i).getClass().getSimpleName(); 
+            switch (type) {
+                case "EdgeRhsContext":
+                    String id = visit(ctx.getChild(i));
+                    System.out.println("ID: " + id);
+                    edges_list.add(id);
+                    break;
+                case "Attr_listContext":
+                    visit(ctx.getChild(i));
+                    break;
+                case "EdgeopContext":
+                    break;
+            }
         }
-        voidNode(node);
-        return node;
-    }
-
-    /* (SUBGRAPH ID?)? '{' stmt_list '}' # SubGraphBody */
-    @Override
-    public String visitSubGraphBody(DotExprParser.SubGraphBodyContext ctx) {
-        return visit(ctx.stmt_list());
+        addAttrEdge();
+        return null;
     }
 
     /* node_id attr_list? # NodeStmt */
     @Override
     public String visitNodeStmt(DotExprParser.NodeStmtContext ctx) {
         String node_id = visit(ctx.node_id());
-        voidNode(node_id);
+        
+        if (ctx.children.size() == 2) {
+            visit(ctx.getChild(1));
+            addAttrToken(node_id, "Attr", "AttrList");
+        }
+        addAttrToken(node_id, "Type", "Node");
         return node_id;
     }
 
-    /* ID port? # Id */
+    /* id_ port? # Id */
     @Override
     public String visitId(DotExprParser.IdContext ctx) {
-        String id = ctx.ID().getText();
+        String id = ctx.id_().getText();
+        addAttrToken(id, "Type", "Node");
         return id;
     }
 
-    // ! FUNCTIONS
-    public void insertNode(String node, String element) {
-        // Add all the edges
-        if (list.containsKey(node)) {
-            // If the key is already present, get the list of values
-            List<String> values = list.get(node);
+    //------------------------------------------- FUNCTIONS -------------------------------------------------- //
 
-            values.removeIf((String arg0) -> arg0 == "-");
-            // Add the new value to the list
-            values.add(element);
+    // Function to get the symbol table
+    public SymbolTable getSymbolTable() {
+        return symbolTable;
+    }
+
+    // Function to add a edge to the symbol table
+    public void addAttrEdge() {
+        for (Integer i = 0; i < edges_list.size() - 1; i++) {
+            symbolTable.addEdge(edges_list.get(i), edges_list.get(i + 1), attr_list);
+        }
+        attr_list.clear();
+        edges_list.clear();
+    }
+
+    // Function to add a token to the symbol table
+    public void addAttrToken(String token, String type, String attr) {
+        List<String> tokenAttr = new ArrayList<>();
+        tokenAttr.add(type);
+        tokenAttr.add(attr);
+        if (type.equals("Attr")) {
+            symbolTable.addToken(token, attr_list);
+            attr_list.clear();
+            edges_list.clear();
         } else {
-            // If the key is not present, create a new list with the value
-            List<String> values = new ArrayList<>();
-            values.add(element);
-            list.put(node, values);
+            symbolTable.addToken(token, tokenAttr);
         }
-    }
-
-    public void writeFile() {
-        try (PrintWriter writer = new PrintWriter("output.txt")) {
-            for (Map.Entry<String, List<String>> entry : list.entrySet()) {
-                String key = entry.getKey();
-                List<String> values = entry.getValue();
-                writer.print(key + ": ");
-                for (String value : values) {
-                    // if (value != null)
-                    writer.print(value + " ");
-                }
-                writer.println();
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void voidNode(String node) {
-        if (!list.containsKey(node))
-            insertNode(node, "-");
     }
 }

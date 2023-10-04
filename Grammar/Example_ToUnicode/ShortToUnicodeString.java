@@ -6,7 +6,7 @@ public class ShortToUnicodeString extends ArrayInitBaseListener {
 
     @Override
     public void exitInit(ArrayInitParser.InitContext ctx) {
-        System.out.print("\"");
+        System.out.print('\"');
     }
 
     @Override
