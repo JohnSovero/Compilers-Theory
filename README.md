@@ -236,6 +236,9 @@
 			> Use `-I/usr/include/antlr4-runtime` if `antlr4-runtime` was installed with package manager
 
 			> Use `-I$ANTLR4I -L$ANTLR4L` if update the file `setup.sh`, exporting the paths of antlr4
+			```bash
+			clang++ -std=c++17 -I$ANTLR4I -L$ANTLR4L -lantlr4-runtime libs/*.cpp *cpp, with paths of antlr4
+			```
 			```sh
 			export ANTLR4I=/usr/local/include/antlr4-runtime
 			export ANTLR4L=/usr/local/lib/antlr4-runtime
@@ -274,19 +277,27 @@
         5. Now execute the program with `make`
         
     - Generate Code to Dot Language
-		- Generate Intermediate code with clang.
+		- Generate assembler code with clang (.s).
+			```bash
+			clang -S file.c  
+			```
+		- Generate object file with clang (.o).
+			```bash
+			clang -c file.c  
+			```
+		- Generate LLVM Intermediate Representation code with clang (.ll).
 			```bash
 			clang -S -emit-llvm file.c  
 			```
-		- Use opt for optimization
+		- Use opt for optimization code llvm (level 0 - 5)
 			```bash
 			opt --dot-cfg file.ll -enable-new-pm=0
 			```
-		- Use dot
+		- Use dot to create image
 			```bash
 			dot -Tpng .prefix_sum.dot -o ps.png   
 			```
-		- Generate the output with llc (Middle End)
+		- Generate the output with llc (Middle End) assembler arm
 			```bash
 			llc file.ll -march=arm -o file.arm  
 			```
