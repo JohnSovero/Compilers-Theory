@@ -275,7 +275,21 @@
            ```
 
         5. Now execute the program with `make`
-        
+5. How to use LLVM-15
+	### Install llvm
+
+		- Using CLI in Arch
+			```bash
+			sudo pacman llvm
+			```
+
+		- Using CLI in Debian
+			```bash
+			sudo apt-get install llvm-15 llvm-15-dev llvm-15-doc llvm-15-linker-tools llvm-15-runtime llvm-15-tools
+			```
+
+	### Using llvm      
+
     - Generate Code to Dot Language
 		- Generate assembler code with clang (.s).
 			```bash
@@ -301,4 +315,21 @@
 			```bash
 			llc file.ll -march=arm -o file.arm  
 			```
-	
+
+	- Compile llvm file
+		- For Arch
+			```bash
+			clang++ -lLLVM <file>.cpp
+			```
+		- For Debian	
+		 	- LLVM-14
+				```bash
+				clang++ -g -O3 fibonacci.cpp `llvm-config --cxxflags --ldflags --system-libs --libs all` -o a
+
+				clang++ -g -O3 fibonacci.cpp `llvm-config --cxxflags --ldflags --system-libs --libs all`
+				```
+			- LLVM-15
+				```bash
+				clang++ fibonacci.cpp $(llvm-config-15 --cxxflags) -lLLVM-15
+				```
+			
