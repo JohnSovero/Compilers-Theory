@@ -55,4 +55,4 @@ Makefile
 
 # Custom for clangd
 .cache/
-Shell
+Shell/
