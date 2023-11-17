@@ -56,9 +56,5 @@ Makefile
 # Custom for clangd
 .cache/
 
-/Shell
-Shell
-*/Shell
-*Shell
-Shell/*
+# Custom for submodules
 Shell/
