@@ -49,6 +49,7 @@ public:
     llvm::raw_fd_stream outLL("test.ll", error);
     module->print(outLL, nullptr);
   }
+  void IRFunctionSysDecl(const char *nameFunction, std::vector<llvm::Type *> argTy, bool isVar);
 
 private:
   std::map<std::string, std::any> memory;
@@ -64,6 +65,10 @@ private:
     llvm::IRBuilder<> TmpB(&F->getEntryBlock(), F->getEntryBlock().begin());
     return TmpB.CreateAlloca(llvm::Type::getDoubleTy(*context), nullptr, varName);
   }
+  // Types
+  llvm::Type *int8Type;
+  llvm::Type *int32Type;
+  llvm::Type *charPtrType;
 };
 
 #endif

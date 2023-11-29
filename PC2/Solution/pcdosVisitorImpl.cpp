@@ -1,6 +1,8 @@
 #include "pcdosVisitorImpl.h"
-#include "libs/pcdosParser.h"
+
 #include <any>
+#include <llvm-17/llvm/IR/Constant.h>
+#include <llvm-17/llvm/Support/raw_ostream.h>
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
@@ -12,11 +14,38 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
-#include <memory>
-#include <string>
+#include <typeinfo>
 
-std::any pcdosVisitorImpl::visitProg(pcdosParser::ProgContext *ctx) {
+void pcdosVisitorImpl::IRFunctionSysDecl(const char *nameFunction, std::vector<llvm::Type *> argTy, bool isVar)
+{
+  std::vector<llvm::Type *> argTypes = argTy; // Argument type is char*
+                                              // Declare C standard library printf
+
+  llvm::FunctionType *funcType = llvm::FunctionType::get(
+      int32Type, // Return type is int
+      argTypes,  // Argument types
+      isVar      // Is vararg?
+  );
+
+  llvm::Function *func = llvm::Function::Create(
+      funcType,
+      llvm::Function::ExternalLinkage,
+      nameFunction, // Function name
+      module.get()  // Get the raw pointer
+  );
+}
+
+std::any pcdosVisitorImpl::visitProg(pcdosParser::ProgContext *ctx)
+{
   std::cout << "visitProg\n";
+  // Assign variables to llvm types
+  int8Type = llvm::Type::getInt8Ty(*context);
+  int32Type = llvm::Type::getInt32Ty(*context);
+  charPtrType = llvm::PointerType::get(int8Type, 0);
+
+  // Creates the sys call functions
+  IRFunctionSysDecl("puts", {charPtrType}, false);
+
   // Creates the main Function
   std::vector<llvm::Type *> Doubles(0, llvm::Type::getDoubleTy(*context));
   llvm::FunctionType *FT = llvm::FunctionType::get(llvm::Type::getVoidTy(*context), Doubles, false);
@@ -36,16 +65,18 @@ std::any pcdosVisitorImpl::visitProg(pcdosParser::ProgContext *ctx) {
   return std::any(nullptr);
 }
 
-std::any pcdosVisitorImpl::visitPrintExpr(pcdosParser::PrintExprContext *ctx) {
+std::any pcdosVisitorImpl::visitPrintExpr(pcdosParser::PrintExprContext *ctx)
+{
   std::cout << "visitPrintExpr\n";
 
   llvm::Value *value = std::any_cast<llvm::Value *>(visit(ctx->expr()));
   value->print(llvm::errs(), false);
 
-	return std::any();
+  return std::any();
 }
 
-std::any pcdosVisitorImpl::visitAssign(pcdosParser::AssignContext *ctx) {
+std::any pcdosVisitorImpl::visitAssign(pcdosParser::AssignContext *ctx)
+{
   std::cout << "visitAssign\n";
   std::string id = std::any_cast<std::string>(ctx->ID()->getText());
 
@@ -65,59 +96,68 @@ std::any pcdosVisitorImpl::visitAssign(pcdosParser::AssignContext *ctx) {
   return std::any(nullptr);
 }
 
-std::any pcdosVisitorImpl::visitStatdef(pcdosParser::StatdefContext *ctx) {
+std::any pcdosVisitorImpl::visitStatdef(pcdosParser::StatdefContext *ctx)
+{
   std::cout << "visitStatdef\n";
   return visitChildren(ctx);
 }
 
 std::any
-pcdosVisitorImpl::visitStatextern(pcdosParser::StatexternContext *ctx) {
+pcdosVisitorImpl::visitStatextern(pcdosParser::StatexternContext *ctx)
+{
   std::cout << "visitStatextern\n";
   return visitChildren(ctx);
 }
 
-std::any pcdosVisitorImpl::visitBlank(pcdosParser::BlankContext *ctx) {
+std::any pcdosVisitorImpl::visitBlank(pcdosParser::BlankContext *ctx)
+{
   std::cout << "visitBlank\n";
   return visitChildren(ctx);
 }
 
-std::any pcdosVisitorImpl::visitCall(pcdosParser::CallContext *ctx) {
+std::any pcdosVisitorImpl::visitCall(pcdosParser::CallContext *ctx)
+{
   std::cout << "visitCall\n";
   return visitChildren(ctx);
 }
 
-std::any pcdosVisitorImpl::visitNumber(pcdosParser::NumberContext *ctx) {
+std::any pcdosVisitorImpl::visitNumber(pcdosParser::NumberContext *ctx)
+{
   std::cout << "visitNumber\n";
   auto numVal = std::stod(ctx->NUMBER()->getText());
-  llvm::Value *val  = llvm::ConstantFP::get(*context, llvm::APFloat(numVal));
+  llvm::Value *val = llvm::ConstantFP::get(*context, llvm::APFloat(numVal));
   return std::any(val);
 }
 
-std::any pcdosVisitorImpl::visitMulDiv(pcdosParser::MulDivContext *ctx) {
+std::any pcdosVisitorImpl::visitMulDiv(pcdosParser::MulDivContext *ctx)
+{
   std::cout << "visitMulDiv\n";
   return visitChildren(ctx);
 }
 
-std::any pcdosVisitorImpl::visitAddSub(pcdosParser::AddSubContext *ctx) {
+std::any pcdosVisitorImpl::visitAddSub(pcdosParser::AddSubContext *ctx)
+{
   std::cout << "visitAddSub\n";
   llvm::Value *L = std::any_cast<llvm::Value *>(visit(ctx->expr(0)));
   llvm::Value *R = std::any_cast<llvm::Value *>(visit(ctx->expr(1)));
-  if (ctx->op->getType() == pcdosParser::ADD) 
+  if (ctx->op->getType() == pcdosParser::ADD)
   {
     return std::any(builder->CreateFAdd(L, R, "addTemp"));
-  } 
-  else 
+  }
+  else
   {
     return std::any(builder->CreateFSub(L, R, "subTemp"));
   }
 }
 
-std::any pcdosVisitorImpl::visitParens(pcdosParser::ParensContext *ctx) {
+std::any pcdosVisitorImpl::visitParens(pcdosParser::ParensContext *ctx)
+{
   std::cout << "visitParens\n";
   return visitChildren(ctx);
 }
 
-std::any pcdosVisitorImpl::visitId(pcdosParser::IdContext *ctx) {
+std::any pcdosVisitorImpl::visitId(pcdosParser::IdContext *ctx)
+{
   std::cout << "visitId\n";
   std::string idName = ctx->ID()->getText();
   // Check if the variable is in the memory
@@ -126,17 +166,20 @@ std::any pcdosVisitorImpl::visitId(pcdosParser::IdContext *ctx) {
   return std::any(idName);
 }
 
-std::any pcdosVisitorImpl::visitProto(pcdosParser::ProtoContext *ctx) {
+std::any pcdosVisitorImpl::visitProto(pcdosParser::ProtoContext *ctx)
+{
   std::cout << "visitProto\n";
   return visitChildren(ctx);
 }
 
-std::any pcdosVisitorImpl::visitDef(pcdosParser::DefContext *ctx) {
+std::any pcdosVisitorImpl::visitDef(pcdosParser::DefContext *ctx)
+{
   std::cout << "visitDef\n";
   return visitChildren(ctx);
 }
 
-std::any pcdosVisitorImpl::visitExtern(pcdosParser::ExternContext *ctx) {
+std::any pcdosVisitorImpl::visitExtern(pcdosParser::ExternContext *ctx)
+{
   std::cout << "visitExtern\n";
   return visitChildren(ctx);
 }
